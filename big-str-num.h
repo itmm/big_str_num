@@ -22,7 +22,7 @@ namespace Big_Str_Num {
     public:
         Num() = default;
         Num(const unsigned short* begin, const unsigned short* end): begin_ { begin }, end_ { end } { trim(); }
-        Num(const Result &result);
+        Num(const Result &result); // NOLINT
 
         Num(const Num& other) = default;
         Num& operator=(const Num& other) = default;
@@ -46,21 +46,23 @@ namespace Big_Str_Num {
             friend Result& multiply_and_add(Result& res, const Num& num, int factor, int shift);
             friend Result& div_by_2(Result& value);
 
+            void trim();
+
         public:
-            Result(unsigned short *begin, unsigned short *end): begin_ { begin }, end_ { end }, used_ { end } { }
+            Result(unsigned short *begin, unsigned short *end): begin_ { begin }, end_ { end }, used_ { begin } { }
             Result(const Result&) = delete;
             Result& operator=(const Result& other) { if (&other != this) { copy(other); } return *this; }
             Result& operator=(const Num& num) { copy(num); return *this; }
 
             void copy(const Num& num, int shift = 0);
-            void clear() { used_ = end_; }
+            void clear() { used_ = begin_; }
             void push_back(unsigned short num);
 
-            [[nodiscard]] bool empty() const { return used_ >= end_; }
-            [[nodiscard]] bool odd() const { return used_ < end_ && (end_[-1] % 2); }
+            [[nodiscard]] bool empty() const { return used_ <= begin_; }
+            [[nodiscard]] bool odd() const { return used_ > begin_ && (*begin_ % 2); }
     };
 
-    inline Num:: Num(const Result& result): begin_ { result.used_ }, end_ { result.end_ } { trim(); }
+    inline Num:: Num(const Result& result): begin_ { result.begin_ }, end_ { result.used_ } { trim(); }
 
     struct Div_Result {
         Result div;
@@ -113,6 +115,7 @@ namespace Big_Str_Num {
     Result& add(Result& res, const Num& num);
     Result& sub(Result& res, const Num& num);
     Result& mult(Result& res, const Num& a, const Num& b);
+    Result& div_by_2(Result &value);
     Div_Result& div(Div_Result& res, const Num& a, const Num& b);
 
     Result& mod(Result& res, const Num& m, Div_Result& tmp);

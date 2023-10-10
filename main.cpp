@@ -4,10 +4,9 @@
 #include "big-str-num.h"
 
 template<int SZ> class Buffered_Result: public Big_Str_Num::Result {
-    unsigned short buffer_[SZ];
-public:
-    Buffered_Result(): Result {buffer_, buffer_ + SZ } { }
-    using Result::operator=;
+        unsigned short buffer_[SZ] { };
+    public:
+        Buffered_Result(): Result {buffer_, buffer_ + SZ } { }
 };
 
 void fill(Big_Str_Num::Result& result, unsigned long long value) {
@@ -19,34 +18,32 @@ void fill(Big_Str_Num::Result& result, unsigned long long value) {
 }
 
 class Long_Result: public Buffered_Result<4> {
-public:
-    Long_Result(unsigned long long value = 0) {
-        fill(*this, value);
-    }
+    public:
+        explicit Long_Result(unsigned long long value = 0) { fill(*this, value); }
 };
 
 template<int SZ> class Buffered_Div_Result: public Big_Str_Num::Div_Result {
-    unsigned short div_buffer_[SZ];
-    unsigned short rem_buffer_[SZ];
-    unsigned short scratch1_buffer_[SZ];
-    unsigned short scratch2_buffer_[SZ];
-public:
-    Buffered_Div_Result(): Div_Result(
-            div_buffer_, div_buffer_ + SZ,
-            rem_buffer_, rem_buffer_ + SZ,
-            scratch1_buffer_, scratch1_buffer_ + SZ,
-            scratch2_buffer_, scratch2_buffer_ + SZ
-    ) { }
+        unsigned short div_buffer_[SZ] { };
+        unsigned short rem_buffer_[SZ] { };
+        unsigned short scratch1_buffer_[SZ] { };
+        unsigned short scratch2_buffer_[SZ] { };
+    public:
+        Buffered_Div_Result(): Div_Result(
+                div_buffer_, div_buffer_ + SZ,
+                rem_buffer_, rem_buffer_ + SZ,
+                scratch1_buffer_, scratch1_buffer_ + SZ,
+                scratch2_buffer_, scratch2_buffer_ + SZ
+        ) { }
 };
 
 class Long_Div_Result: public Buffered_Div_Result<4> { };
 
 template<int SZ> class Buffered_Pow_Result: public Big_Str_Num::Pow_Result {
     Buffered_Div_Result<SZ> div_result_;
-    unsigned short result_[SZ];
-    unsigned short scratch1_buffer_[SZ];
-    unsigned short scratch2_buffer_[SZ];
-    unsigned short scratch3_buffer_[SZ];
+    unsigned short result_[SZ] { };
+    unsigned short scratch1_buffer_[SZ] { };
+    unsigned short scratch2_buffer_[SZ] { };
+    unsigned short scratch3_buffer_[SZ] { };
 public:
     Buffered_Pow_Result(): Pow_Result(
             result_, result_ + SZ,
@@ -61,7 +58,7 @@ class Long_Pow_Result: public Buffered_Pow_Result<4> { };
 
 void assert_num(const Big_Str_Num::Num &num, unsigned long long expected) {
     if (expected > 0) {
-        assert(num == Long_Result(expected));
+        assert(num == Big_Str_Num::Num { Long_Result(expected) });
     } else {
         assert(num.begin() == nullptr && num.end() == nullptr);
     }
@@ -97,6 +94,12 @@ void assert_mult(unsigned long long a, unsigned long long b, unsigned long long 
     Long_Result result;
     Big_Str_Num::mult(result, Long_Result { a }, Long_Result { b });
     assert(result == Long_Result { expected });
+}
+
+void assert_div_by_2(unsigned long long a, unsigned long long expected) {
+    Long_Result res { a };
+    Big_Str_Num::div_by_2(res);
+    assert(res == Long_Result { expected });
 }
 
 void assert_div(unsigned long long a, unsigned long long b, unsigned long long expected_div, unsigned long long expected_rem) {
@@ -153,16 +156,40 @@ int main() {
     assert(Long_Result { 13 } >= Long_Result { 12 });
     assert(Long_Result { 13 } >= Long_Result { 13 });
 
+    assert(Long_Result { 12 + Big_Str_Num::base } == Long_Result { 12 + Big_Str_Num::base });
+    assert(Long_Result { 12 + Big_Str_Num::base } != Long_Result { 13 + Big_Str_Num::base });
+    assert(Long_Result { 12 + Big_Str_Num::base } < Long_Result { 13 + Big_Str_Num::base });
+    assert(Long_Result { 12 + Big_Str_Num::base } <= Long_Result { 13 + Big_Str_Num::base });
+    assert(Long_Result { 12 + Big_Str_Num::base } <= Long_Result { 12 + Big_Str_Num::base });
+    assert(Long_Result { 13 + Big_Str_Num::base } > Long_Result { 12 + Big_Str_Num::base });
+    assert(Long_Result { 13 + Big_Str_Num::base } >= Long_Result { 12 + Big_Str_Num::base });
+    assert(Long_Result { 13 + Big_Str_Num::base } >= Long_Result { 13 + Big_Str_Num::base });
+
+    assert(Long_Result { 12 * Big_Str_Num::base } == Long_Result { 12 * Big_Str_Num::base });
+    assert(Long_Result { 12 * Big_Str_Num::base } != Long_Result { 13 * Big_Str_Num::base });
+    assert(Long_Result { 12 * Big_Str_Num::base } < Long_Result { 13 * Big_Str_Num::base });
+    assert(Long_Result { 12 * Big_Str_Num::base } <= Long_Result { 13 * Big_Str_Num::base });
+    assert(Long_Result { 12 * Big_Str_Num::base } <= Long_Result { 12 * Big_Str_Num::base });
+    assert(Long_Result { 13 * Big_Str_Num::base } > Long_Result { 12 * Big_Str_Num::base });
+    assert(Long_Result { 13 * Big_Str_Num::base } >= Long_Result { 12 * Big_Str_Num::base });
+    assert(Long_Result { 13 * Big_Str_Num::base } >= Long_Result { 13 * Big_Str_Num::base });
+
+    assert(Long_Result { 100 } < Long_Result { 13 * Big_Str_Num::base });
+    assert(Long_Result { 13 * Big_Str_Num::base } > Long_Result { 100 });
+
     assert_add(123, 45, 168);
     assert_add(1, 99, 100);
     assert_add(655, 456, 1111);
     assert_add(12, 0, 12);
     assert_add(0, 12, 12);
+    assert_add(99999, 10, 100009);
+    assert_add(100, 99999, 100099);
 
     assert_sub(123, 12, 111);
     assert_sub(100, 1, 99);
     assert_sub(100, 0, 100);
     assert_sub(0, 0, 0);
+    assert_sub(1000000, 2, 999998);
 
     {
         Long_Result res { 12 };
@@ -178,9 +205,19 @@ int main() {
     assert_mult(11, 11, 121);
     assert_mult(10, 13, 130);
     assert_mult(13, 10, 130);
+    assert_mult(1234, 1000000, 1234000000);
+    assert_mult(Big_Str_Num::base, Big_Str_Num::base, static_cast<unsigned long long>(Big_Str_Num::base) * Big_Str_Num::base);
+    assert_mult(1000, 100, 100000);
+
+    assert_div_by_2(10, 5);
+    assert_div_by_2(11, 5);
+    assert_div_by_2(0, 0);
+    assert_div_by_2(10000000, 5000000);
+    assert_div_by_2(Big_Str_Num::base, Big_Str_Num::base / 2);
 
     assert_div(0, 10, 0, 0);
     assert_div(10, 10, 1, 0);
+    assert_div(Big_Str_Num::base, 2, Big_Str_Num::base / 2, 0);
     assert_div(100000, 100, 1000, 0);
     assert_div(102, 10, 10, 2);
     assert_div(123, 10, 12, 3);
@@ -192,8 +229,8 @@ int main() {
     assert_mult_mod(10, 13, 17, 11);
 
     {
-        Long_Result one = 1, two = 2, three = 3, four = 4;
-        Long_Result five = 5, six = 6, seven = 7, eight = 8;
+        Long_Result one { 1 }, two { 2 }, three { 3 }, four { 4 };
+        Long_Result five { 5 }, six { 6 }, seven { 7 }, eight { 8 };
 
         Buffered_Pow_Result<5> result;
         result.result.copy(one);

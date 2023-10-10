@@ -4,21 +4,21 @@
 
 namespace Big_Str_Num {
     void Result::copy(const Num &num, int shift) {
-        used_ = end_;
+        used_ = begin_;
         for (; shift > 0; --shift) {
-            if (used_ <= begin_) { throw Error { }; }
-            *--used_ = 0;
+            if (used_ >= end_) { throw Error { }; }
+            *used_++ = 0;
         }
-        const unsigned short* begin { num.begin() };
-        const unsigned short* cur { num.end() };
-        while (cur > begin) {
-            if (used_ <= begin_) { throw Error { }; }
-            *--used_ = *--cur;
+        auto nc {num.begin() };
+        auto ne {num.end() };
+        while (nc < ne) {
+            if (used_ >= end_) { throw Error { }; }
+            *used_++ = *nc++;
         }
     }
 
     void Num::trim() {
-        while (begin_ < end_ && *begin_ == 0) { ++begin_; }
+        while (begin_ < end_ && end_[-1] == 0) { --end_; }
         if (begin_ == end_) { begin_ = end_ = nullptr; }
     }
 
@@ -30,64 +30,73 @@ namespace Big_Str_Num {
         auto as { a.size() };
         auto bs { b.size() };
         if (as == bs) {
-            return std::lexicographical_compare(a.begin(), a.end(), b.begin(), b.end());
-        } else { return as < bs; }
+            auto ab { a.begin() };
+            auto ac { a.end() - 1 } ;
+            auto bc { b.end() - 1 };
+            for (; ac >= ab; --ac, --bc) {
+                if (*ac < *bc) { return true; }
+                else if (*ac > *bc) { return false; }
+            }
+        }
+        return as < bs;
     }
 
     void Result::push_back(unsigned short num) {
-        if (used_ == begin_) { throw Error { }; }
-        --used_;
-        *used_ = num;
+        if (used_ >= end_) { throw Error { }; }
+        *used_++ = num;
     }
 
     Result &add(Result &res, const Num &num) {
         if (num.empty()) { return res; }
 
-        auto rb { res.begin_ };
-        auto rc { res.end_ - 1 };
+        auto rc { res.begin_ };
         auto ru { res.used_ };
-        auto nb { num.begin() };
-        auto nc { num.end() - 1 };
+        auto re { res.end_ };
+        auto nc { num.begin() };
+        auto ne { num.end() };
         int overflow { 0 };
 
-        while (nc >= nb || overflow > 0) {
+        while (nc < ne || overflow > 0) {
             int sum { overflow };
             overflow = 0;
-            if (nc >= nb ) { sum += *nc; --nc; }
-            if (rc < rb) { throw Error { }; }
-            if (rc >= ru) { sum += *rc; }
+            if (nc < ne ) { sum += *nc++; }
+            if (rc >= re) { throw Error { }; }
+            if (rc < ru) { sum += *rc; }
             if (sum >= base) { sum -= base; overflow = 1; }
-            *rc = static_cast<unsigned short>(sum); --rc;
+            *rc++ = static_cast<unsigned short>(sum);
         }
-        if (rc < ru) { res.used_ = rc + 1; }
+        if (rc > ru) { res.used_ = rc; }
 
         return res;
+    }
+
+    void Result::trim() {
+        while (used_ > begin_ && used_[-1] == 0) { --used_; }
     }
 
     Result &sub(Result &res, const Num &num) {
         if (num.empty()) { return res; }
 
-        auto rb { res.begin_ };
-        auto rc { res.end_ - 1 };
-        auto re { res.end_ };
+        auto rc { res.begin_ };
         auto ru { res.used_ };
-        auto nb { num.begin() };
-        auto nc { num.end() - 1 };
+        auto re { res.end_ };
+        auto nc { num.begin() };
+        auto ne { num.end() };
         int borrow { 0 };
 
-        while (nc >= nb || borrow > 0) {
+        while (nc < ne || borrow > 0) {
             int sum { -borrow };
             borrow = 0;
-            if (nc >= nb) { sum -= *nc; --nc; }
-            if (rc < rb) { throw Error { }; }
-            if (rc >= ru) { sum +=  *rc; }
+            if (nc < ne) { sum -= *nc++; }
+            if (rc >= re) { throw Error { }; }
+            if (rc < ru) { sum +=  *rc; }
             if (sum < 0) { sum += base; borrow = 1; }
-            *rc = static_cast<unsigned short>(sum); --rc;
+            *rc++ = static_cast<unsigned short>(sum);
         }
 
-        while (rc < re && *rc == 0) { ++rc; }
+        if (rc > ru) { res.used_ = rc; }
 
-        if (rc < ru) { res.used_ = rc + 1; }
+        res.trim();
 
         return res;
     }
@@ -95,29 +104,27 @@ namespace Big_Str_Num {
     inline Result& multiply_and_add(Result& res, const Num& num, int factor, int shift) {
         if (num.empty() || factor == 0) { return res; }
 
-        auto rb { res.begin_ };
+        auto rc { res.begin_ };
         auto ru { res.used_ };
-        auto rc { res.end_ - 1 };
+        auto re { res.end_ };
 
-        for (; shift > 0; --shift) {
-            if (rc <= rb) { throw Error { }; }
-            if (rc < ru) { *rc = 0; }
-            --rc;
+        for (; shift > 0; --shift, ++rc) {
+            if (rc >= re) { throw Error { }; }
+            if (rc >= ru) { *rc = 0; }
         }
 
         int overflow { 0 };
-        auto nb { num.begin() };
-        auto nc { num.end() - 1 };
-        while (nc >= nb || overflow) {
+        auto nc { num.begin() };
+        auto ne { num.end() };
+        while (nc < ne || overflow) {
             int sum { overflow };
-            if (nc >= nb) { sum += *nc * factor; }
-            if (rc < rb) { throw Error { }; }
-            if (rc >= ru) { sum += *rc; }
+            if (nc < ne) { sum += *nc++ * factor; }
+            if (rc >= re) { throw Error { }; }
+            if (rc < ru) { sum += *rc; }
             overflow = sum / base;
-            *rc = static_cast<unsigned short>(sum % base);
-            --rc; --nc;
+            *rc++ = static_cast<unsigned short>(sum % base);
         }
-        if (rc < ru) { res.used_ = rc + 1; }
+        if (rc > ru) { res.used_ = rc; }
         return res;
     }
 
@@ -125,28 +132,29 @@ namespace Big_Str_Num {
         res.clear();
         if (a.empty() || b.empty()) { return res; }
 
-        auto ab { a.begin() };
-        auto ac { a.end() - 1 };
+        auto ac { a.begin() };
+        auto ae { a.end() };
 
-        for (int shift { 0 }; ab <= ac; ++shift, --ac) {
+        for (int shift { 0 }; ac < ae; ++shift, ++ac) {
             multiply_and_add(res, b, *ac, shift);
         }
         return res;
     }
 
-    inline Result& div_by_2(Result &value) {
+    Result& div_by_2(Result &value) {
         int overflow = 0;
 
-        auto rc { value.used_ };
-        auto re { value.end_ };
-        for (; rc < re; ++rc) {
+        auto rc { value.used_ - 1 };
+        auto re { value.begin_ };
+        for (; rc >= re; --rc) {
             int sum = overflow;
             int digit = *rc;
             sum += digit/2;
             overflow = (digit % 2) * (base/2);
             *rc = static_cast<unsigned short>(sum);
-            if (sum == 0 && rc == value.used_) { ++value.used_; }
         }
+
+        value.trim();
 
         return value;
     }
