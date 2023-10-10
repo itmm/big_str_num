@@ -7,10 +7,10 @@ namespace Big_Str_Num {
         used_ = end_;
         for (; shift > 0; --shift) {
             if (used_ <= begin_) { throw Error { }; }
-            *--used_ = '0';
+            *--used_ = 0;
         }
-        const char* begin { num.begin() };
-        const char* cur { num.end() };
+        const unsigned short* begin { num.begin() };
+        const unsigned short* cur { num.end() };
         while (cur > begin) {
             if (used_ <= begin_) { throw Error { }; }
             *--used_ = *--cur;
@@ -18,7 +18,7 @@ namespace Big_Str_Num {
     }
 
     void Num::trim() {
-        while (begin_ < end_ && *begin_ == '0') { ++begin_; }
+        while (begin_ < end_ && *begin_ == 0) { ++begin_; }
         if (begin_ == end_) { begin_ = end_ = nullptr; }
     }
 
@@ -34,6 +34,12 @@ namespace Big_Str_Num {
         } else { return as < bs; }
     }
 
+    void Result::push_back(unsigned short num) {
+        if (used_ == begin_) { throw Error { }; }
+        --used_;
+        *used_ = num;
+    }
+
     Result &add(Result &res, const Num &num) {
         if (num.empty()) { return res; }
 
@@ -47,11 +53,11 @@ namespace Big_Str_Num {
         while (nc >= nb || overflow > 0) {
             int sum { overflow };
             overflow = 0;
-            if (nc >= nb ) { sum += *nc - '0'; --nc; }
+            if (nc >= nb ) { sum += *nc; --nc; }
             if (rc < rb) { throw Error { }; }
-            sum += (rc >= ru) ? *rc : '0';
-            if (sum > '9') { sum -= 10; overflow = 1; }
-            *rc = static_cast<char>(sum); --rc;
+            if (rc >= ru) { sum += *rc; }
+            if (sum >= base) { sum -= base; overflow = 1; }
+            *rc = static_cast<unsigned short>(sum); --rc;
         }
         if (rc < ru) { res.used_ = rc + 1; }
 
@@ -72,14 +78,14 @@ namespace Big_Str_Num {
         while (nc >= nb || borrow > 0) {
             int sum { -borrow };
             borrow = 0;
-            if (nc >= nb) { sum -= *nc - '0'; --nc; }
+            if (nc >= nb) { sum -= *nc; --nc; }
             if (rc < rb) { throw Error { }; }
-            if (rc >= ru) { sum +=  *rc - '0'; }
-            if (sum < 0) { sum += 10; borrow = 1; }
-            *rc = static_cast<char>(sum + '0'); --rc;
+            if (rc >= ru) { sum +=  *rc; }
+            if (sum < 0) { sum += base; borrow = 1; }
+            *rc = static_cast<unsigned short>(sum); --rc;
         }
 
-        while (rc < re && *rc == '0') { ++rc; }
+        while (rc < re && *rc == 0) { ++rc; }
 
         if (rc < ru) { res.used_ = rc + 1; }
 
@@ -95,7 +101,7 @@ namespace Big_Str_Num {
 
         for (; shift > 0; --shift) {
             if (rc <= rb) { throw Error { }; }
-            if (rc < ru) { *rc = '0'; }
+            if (rc < ru) { *rc = 0; }
             --rc;
         }
 
@@ -104,11 +110,11 @@ namespace Big_Str_Num {
         auto nc { num.end() - 1 };
         while (nc >= nb || overflow) {
             int sum { overflow };
-            if (nc >= nb) { sum += (*nc - '0') * factor; }
+            if (nc >= nb) { sum += *nc * factor; }
             if (rc < rb) { throw Error { }; }
-            if (rc >= ru) { sum += *rc - '0'; }
-            overflow = sum / 10;
-            *rc = static_cast<char>((sum % 10) + '0');
+            if (rc >= ru) { sum += *rc; }
+            overflow = sum / base;
+            *rc = static_cast<unsigned short>(sum % base);
             --rc; --nc;
         }
         if (rc < ru) { res.used_ = rc + 1; }
@@ -123,7 +129,7 @@ namespace Big_Str_Num {
         auto ac { a.end() - 1 };
 
         for (int shift { 0 }; ab <= ac; ++shift, --ac) {
-            multiply_and_add(res, b, *ac - '0', shift);
+            multiply_and_add(res, b, *ac, shift);
         }
         return res;
     }
@@ -135,10 +141,10 @@ namespace Big_Str_Num {
         auto re { value.end_ };
         for (; rc < re; ++rc) {
             int sum = overflow;
-            int digit = *rc - '0';
+            int digit = *rc;
             sum += digit/2;
-            overflow = (digit % 2) * 5;
-            *rc = static_cast<char>(sum + '0');
+            overflow = (digit % 2) * (base/2);
+            *rc = static_cast<unsigned short>(sum);
             if (sum == 0 && rc == value.used_) { ++value.used_; }
         }
 
@@ -151,9 +157,12 @@ namespace Big_Str_Num {
         return div_by_2(res);
     }
 
+    constexpr unsigned short one[1] = { 1 };
+
     Div_Result &div(Div_Result& res, const Num& a, const Num& b) {
         if (b.empty()) { throw Error { }; }
-        res.div.clear(); res.rem = a; add(res.rem, "1");
+        res.div.clear();
+        res.rem = a; add(res.rem, Num { one, one + 1 });
         for (;;) {
             middle(res.scratch1, res.div, res.rem);
             mult(res.scratch2, res.scratch1, b);
@@ -183,7 +192,7 @@ namespace Big_Str_Num {
 
     Pow_Result& pow_mod(Pow_Result& res, const Num& a, const Num& b, const Num& m) {
         if (b.empty()) { res.result.clear(); return res; }
-        res.result = "1";
+        res.result = Num { one, one + 1 };
         res.scratch2 = a;
         for (res.scratch1 = b;! res.scratch1.empty(); div_by_2(res.scratch1)) {
             if (res.scratch1.odd()) {

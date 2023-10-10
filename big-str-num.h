@@ -3,40 +3,43 @@
 #include <cstring>
 #include <cstdio>
 #include <exception>
+#include <limits>
+
 
 namespace Big_Str_Num {
+    constexpr int base { 0x10000 };
+
+    static_assert(std::numeric_limits<unsigned short>::max() >= (base - 1));
+
     class Result;
 
     class Num {
-        const char* begin_ { nullptr };
-        const char* end_ { nullptr };
+        const unsigned short* begin_ { nullptr };
+        const unsigned short* end_ { nullptr };
 
         void trim();
 
     public:
         Num() = default;
-        Num(const char* begin, const char* end): begin_ { begin }, end_ { end } { trim(); }
-        Num(const char* cstr) : begin_ { cstr }, end_ { cstr + (cstr ? strlen(cstr) : 0) } { trim(); }
+        Num(const unsigned short* begin, const unsigned short* end): begin_ { begin }, end_ { end } { trim(); }
         Num(const Result &result);
 
         Num(const Num& other) = default;
         Num& operator=(const Num& other) = default;
-        explicit operator const char* () const { return empty() ? "0" : begin_; }
 
-        [[nodiscard]] const char* begin() const { return begin_; }
-        [[nodiscard]] const char* end() const { return end_; }
+        [[nodiscard]] const unsigned short* begin() const { return begin_; }
+        [[nodiscard]] const unsigned short* end() const { return end_; }
         [[nodiscard]] ssize_t size() const { return end_ - begin_; }
         [[nodiscard]] bool empty() const { return begin_ >= end_; }
-        [[nodiscard]] bool odd() const { return begin_ < end_ && ((end_[-1] - '0') % 2); }
     };
 
 
     class Error : public std::exception { };
 
     class Result {
-            char *const begin_;
-            char *const end_;
-            char* used_;
+            unsigned short *const begin_;
+            unsigned short *const end_;
+            unsigned short* used_;
             friend class Num;
             friend Result& add(Result& res, const Num& num);
             friend Result& sub(Result& res, const Num& num);
@@ -44,17 +47,17 @@ namespace Big_Str_Num {
             friend Result& div_by_2(Result& value);
 
         public:
-            Result(char *begin, char *end): begin_ { begin }, end_ { end }, used_ { end } { }
+            Result(unsigned short *begin, unsigned short *end): begin_ { begin }, end_ { end }, used_ { end } { }
             Result(const Result&) = delete;
             Result& operator=(const Result& other) { if (&other != this) { copy(other); } return *this; }
             Result& operator=(const Num& num) { copy(num); return *this; }
-            explicit operator const char*() const { return used_ == end_ ? "0" : used_; }
 
             void copy(const Num& num, int shift = 0);
             void clear() { used_ = end_; }
+            void push_back(unsigned short num);
 
             [[nodiscard]] bool empty() const { return used_ >= end_; }
-            [[nodiscard]] bool odd() const { return used_ < end_ && ((end_[-1] - '0') % 2); }
+            [[nodiscard]] bool odd() const { return used_ < end_ && (end_[-1] % 2); }
     };
 
     inline Num:: Num(const Result& result): begin_ { result.used_ }, end_ { result.end_ } { trim(); }
@@ -66,10 +69,10 @@ namespace Big_Str_Num {
         Result scratch2;
 
         Div_Result(
-            char* div_begin, char* div_end,
-            char* rem_begin, char* rem_end,
-            char* scratch1_begin, char* scratch1_end,
-            char* scratch2_begin, char* scratch2_end
+            unsigned short* div_begin, unsigned short* div_end,
+            unsigned short* rem_begin, unsigned short* rem_end,
+            unsigned short* scratch1_begin, unsigned short* scratch1_end,
+            unsigned short* scratch2_begin, unsigned short* scratch2_end
         ):
             div { div_begin, div_end },
             rem { rem_begin, rem_end },
@@ -86,10 +89,10 @@ namespace Big_Str_Num {
         Div_Result& div_result;
 
         Pow_Result(
-            char* result_begin, char* result_end,
-            char* scratch1_begin, char* scratch1_end,
-            char* scratch2_begin, char* scratch2_end,
-            char* scratch3_begin, char* scratch3_end,
+            unsigned short* result_begin, unsigned short* result_end,
+            unsigned short* scratch1_begin, unsigned short* scratch1_end,
+            unsigned short* scratch2_begin, unsigned short* scratch2_end,
+            unsigned short* scratch3_begin, unsigned short* scratch3_end,
             Div_Result& div_result
         ):
             result { result_begin, result_end },
