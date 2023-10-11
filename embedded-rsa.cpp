@@ -3,14 +3,10 @@
 #include "embedded-rsa.h"
 
 namespace Embedded_RSA {
-    void Result::copy(const Num &num, int shift) {
-        used_ = begin_;
-        for (; shift > 0; --shift) {
-            if (used_ >= end_) { throw Error { }; }
-            *used_++ = 0;
-        }
+    void Result::copy(const Num &num) {
         auto nc {num.begin() };
         auto ne {num.end() };
+        used_ = begin_;
         while (nc < ne) {
             if (used_ >= end_) { throw Error { }; }
             *used_++ = *nc++;

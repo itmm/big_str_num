@@ -10,7 +10,7 @@ template<int SZ> class Buffered_Result: public Embedded_RSA::Result {
 };
 
 void fill(Embedded_RSA::Result& result, unsigned long long value) {
-    result.clear();
+    result = Embedded_RSA::Num { };
     while (value != 0) {
         result.push_back(static_cast<unsigned short>(value % Embedded_RSA::base));
         value = value / Embedded_RSA::base;
@@ -20,6 +20,7 @@ void fill(Embedded_RSA::Result& result, unsigned long long value) {
 class Long_Result: public Buffered_Result<4> {
     public:
         explicit Long_Result(unsigned long long value = 0) { fill(*this, value); }
+        using Embedded_RSA::Result::operator=;
 };
 
 class Long_Add_State : public Embedded_RSA::Add_State {
@@ -50,9 +51,7 @@ class Long_Add_State : public Embedded_RSA::Add_State {
             fill(state->value_buffer, value); return *this;
         }
 
-        operator Embedded_RSA::Num() const { // NOLINT
-            return static_cast<Embedded_RSA::Num>(state->value_buffer);
-        }
+        operator Embedded_RSA::Num() const { return state->value_buffer; } // NOLINT
 };
 
 class Buffered_Mul_State : public Embedded_RSA::Mul_State {
@@ -86,9 +85,7 @@ class Long_Mul_State: public Buffered_Mul_State {
         Long_Mul_State& operator=(unsigned long long value) {
             fill(state->value_buffer, value); return *this;
         }
-        operator Embedded_RSA::Num() const { // NOLINT
-            return static_cast<Embedded_RSA::Num>(state->value_buffer);
-        }
+        operator Embedded_RSA::Num() const { return state->value_buffer; } // NOLINT
 };
 
 class Long_Pow_State: public Embedded_RSA::Pow_State {
@@ -118,7 +115,7 @@ class Long_Pow_State: public Embedded_RSA::Pow_State {
 
 void assert_num(const Embedded_RSA::Num &num, unsigned long long expected) {
     if (expected > 0) {
-        assert(num == Embedded_RSA::Num {Long_Result(expected) });
+        assert(num == Long_Result(expected));
     } else {
         assert(num.begin() == nullptr && num.end() == nullptr);
     }
@@ -176,7 +173,7 @@ int main() {
         assert(result.empty());
         result = Long_Result { 12 };
         assert_num(result, 12);
-        result.copy(Embedded_RSA::Num { });
+        result = Embedded_RSA::Num { };
         assert(result.empty());
     }
 

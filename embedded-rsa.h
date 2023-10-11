@@ -43,6 +43,8 @@ namespace Embedded_RSA {
 
             void trim();
 
+            void copy(const Num& num);
+
         public:
             Result(unsigned short *begin, unsigned short *end): begin_ { begin }, end_ { end }, used_ { begin } { }
             Result(const Result&) = delete;
@@ -54,8 +56,6 @@ namespace Embedded_RSA {
 
             Result& operator-=(const Num& other);
 
-            void copy(const Num& num, int shift = 0);
-            void clear() { used_ = begin_; }
             void push_back(unsigned short num);
 
             [[nodiscard]] bool empty() const { return used_ <= begin_; }
