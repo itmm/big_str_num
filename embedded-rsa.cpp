@@ -140,12 +140,12 @@ namespace Embedded_RSA {
         return *this;
     }
 
-    inline void do_mult(Mul_State& a, const Num& b) { a *= b; }
+    inline void do_multiply(Mul_State& a, const Num& b) { a *= b; }
 
     Pow_State& Pow_State::pow(const Num& b) {
         scratch1 = Num { result };
         result = Num { one, one + 1 };
-        bit_process<>(do_mult, result, b, scratch1, scratch2);
+        bit_process<>(do_multiply, result, b, scratch1, scratch2);
         return *this;
     }
 }

@@ -147,7 +147,7 @@ void assert_sub(unsigned long long a, unsigned long long b, unsigned long long e
     assert(result == Long_Result(expected));
 }
 
-void assert_mult(unsigned long long a, unsigned long long b, unsigned long long expected) {
+void assert_multiply(unsigned long long a, unsigned long long b, unsigned long long expected) {
     Long_Mul_State result { a, { } };
     result *= Long_Result { b };
     assert(result == Long_Result { expected });
@@ -227,20 +227,20 @@ int main() {
         assert(res == Long_Result { 24 });
     }
 
-    assert_mult(123, 0, 0);
-    assert_mult(123, 1, 123);
-    assert_mult(0, 2, 0);
-    assert_mult(1234, 10001, 12341234);
-    assert_mult(10001, 1234, 12341234);
-    assert_mult(11, 11, 121);
-    assert_mult(10, 13, 130);
-    assert_mult(13, 10, 130);
-    assert_mult(1234, 1000000, 1234000000);
-    assert_mult(
-        Embedded_RSA::base, Embedded_RSA::base,
-        static_cast<unsigned long long>(Embedded_RSA::base) * Embedded_RSA::base
+    assert_multiply(123, 0, 0);
+    assert_multiply(123, 1, 123);
+    assert_multiply(0, 2, 0);
+    assert_multiply(1234, 10001, 12341234);
+    assert_multiply(10001, 1234, 12341234);
+    assert_multiply(11, 11, 121);
+    assert_multiply(10, 13, 130);
+    assert_multiply(13, 10, 130);
+    assert_multiply(1234, 1000000, 1234000000);
+    assert_multiply(
+            Embedded_RSA::base, Embedded_RSA::base,
+            static_cast<unsigned long long>(Embedded_RSA::base) * Embedded_RSA::base
     );
-    assert_mult(1000, 100, 100000);
+    assert_multiply(1000, 100, 100000);
 
     assert_pow(2, 10, 1025, 1024);
     assert_pow(2, 10, 10, 4);
