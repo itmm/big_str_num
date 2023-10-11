@@ -53,10 +53,8 @@ namespace Embedded_RSA {
         return res;
     }
 
-    template<typename OP> Result& perform_add_op(OP op, Result& value, const Num& other) {
-        auto vc { value.begin_ };
-        auto vu { value.used_ };
-        auto ve { value.end_ };
+    template<typename OP> Result& Result::perform_add_op(OP op, const Num& other) {
+        auto cur {begin_ };
         auto oc { other.begin() };
         auto oe { other.end() };
         int overflow { 0 };
@@ -66,14 +64,14 @@ namespace Embedded_RSA {
             int digit { 0 };
             overflow = 0;
             if (oc < oe ) { digit = *oc++; }
-            if (vc >= ve) { throw Error { }; }
-            if (vc < vu) { sum += *vc; }
+            if (cur >= end_) { throw Error { }; }
+            if (cur < used_) { sum += *cur; }
             overflow = op(digit, sum, overflow);
-            *vc++ = static_cast<unsigned short>(sum);
+            *cur++ = static_cast<unsigned short>(sum);
         }
-        if (vc > vu) { value.used_ = vc; }
+        if (cur > used_) { used_ = cur; }
 
-        return value;
+        return *this;
     }
 
     inline int single_add(int digit, int& sum, int& overflow) {
@@ -85,7 +83,7 @@ namespace Embedded_RSA {
     }
 
     Add_State& Add_State::operator+=(const Num& other) {
-        perform_add_op<>(single_add, value, other);
+        value.perform_add_op<>(single_add, other);
         simple_mod(value, modulus);
         return *this;
     }
@@ -103,7 +101,7 @@ namespace Embedded_RSA {
     }
 
     Result& Result::operator-=(const Num& other) {
-        perform_add_op<>(single_sub, *this, other);
+        this->perform_add_op<>(single_sub, other);
         trim();
         return *this;
     }

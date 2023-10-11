@@ -41,8 +41,6 @@ namespace Embedded_RSA {
             unsigned short *const end_;
             unsigned short* used_;
 
-            template<typename OP> friend Result& perform_add_op(OP op, Result& value, const Num& other);
-
             void trim();
 
         public:
@@ -62,6 +60,8 @@ namespace Embedded_RSA {
 
             [[nodiscard]] bool empty() const { return used_ <= begin_; }
             [[nodiscard]] bool odd() const { return used_ > begin_ && (*begin_ % 2); }
+
+            template<typename OP> Result& perform_add_op(OP op, const Num& other);
             Result& div_by_2();
     };
 

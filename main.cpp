@@ -6,7 +6,7 @@
 template<int SZ> class Buffered_Result: public Embedded_RSA::Result {
         unsigned short buffer_[SZ] { };
     public:
-        Buffered_Result(): Result { buffer_, buffer_ + SZ } { }
+        Buffered_Result(): Result(buffer_, buffer_ + SZ) { }
 };
 
 void fill(Embedded_RSA::Result& result, unsigned long long value) {
@@ -106,7 +106,7 @@ class Long_Pow_State: public Embedded_RSA::Pow_State {
         std::unique_ptr<State> state;
 
         explicit Long_Pow_State(std::unique_ptr<State> state):
-            Embedded_RSA::Pow_State { state->value, state->scratch1, state->scratch2 },
+            Embedded_RSA::Pow_State(state->value, state->scratch1, state->scratch2),
             state { std::move(state) }
         { }
 
