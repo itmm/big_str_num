@@ -3,16 +3,6 @@
 #include "embedded-rsa.h"
 
 namespace Embedded_RSA {
-    void Result::copy(const Num &num) {
-        auto nc {num.begin() };
-        auto ne {num.end() };
-        used_ = begin_;
-        while (nc < ne) {
-            if (used_ >= end_) { throw Error { }; }
-            *used_++ = *nc++;
-        }
-    }
-
     void Num::trim() {
         while (begin_ < end_ && end_[-1] == 0) { --end_; }
         if (begin_ == end_) { begin_ = end_ = nullptr; }
@@ -35,6 +25,16 @@ namespace Embedded_RSA {
             }
         }
         return as < bs;
+    }
+
+    void Result::copy(const Num &num) {
+        auto nc { num.begin() };
+        auto ne { num.end() };
+        used_ = begin_;
+        while (nc < ne) {
+            if (used_ >= end_) { throw Error(); }
+            *used_++ = *nc++;
+        }
     }
 
     void Result::push_back(unsigned short num) {
