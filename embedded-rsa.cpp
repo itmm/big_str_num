@@ -127,7 +127,8 @@ namespace Embedded_RSA {
 
     constexpr unsigned short one[1] = { 1 };
 
-    template<typename OP, typename RES> void bit_process(OP op, RES& res, const Num& num, RES& scratch1, Result& scratch2) {
+    template<typename OP, typename RES>
+    void bit_process(OP op, RES& res, const Num& num, RES& scratch1, Result& scratch2) {
         for (scratch2 = num; ! scratch2.empty(); scratch2.div_by_2()) {
             if (scratch2.odd()) {
                 op(res, scratch1);

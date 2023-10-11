@@ -6,7 +6,7 @@
 template<int SZ> class Buffered_Result: public Embedded_RSA::Result {
         unsigned short buffer_[SZ] { };
     public:
-        Buffered_Result(): Result {buffer_, buffer_ + SZ } { }
+        Buffered_Result(): Result { buffer_, buffer_ + SZ } { }
 };
 
 void fill(Embedded_RSA::Result& result, unsigned long long value) {
@@ -36,12 +36,23 @@ class Long_Add_State : public Embedded_RSA::Add_State {
 
         std::unique_ptr<State> state;
 
-        explicit Long_Add_State(std::unique_ptr<State> state): Add_State { state->value_buffer, state->modulus_buffer }, state { std::move(state) } { }
+        explicit Long_Add_State(std::unique_ptr<State> state):
+            Add_State { state->value_buffer, state->modulus_buffer },
+            state { std::move(state) }
+        { }
 
     public:
-        Long_Add_State(unsigned long long value, unsigned long long modulus): Long_Add_State { std::make_unique<State>(value, modulus) } { }
-        Long_Add_State& operator=(unsigned long long value) { fill(state->value_buffer, value); return *this; }
-        operator Embedded_RSA::Num() const { return static_cast<Embedded_RSA::Num>(state->value_buffer); } // NOLINT
+        Long_Add_State(unsigned long long value, unsigned long long modulus):
+            Long_Add_State { std::make_unique<State>(value, modulus) }
+        { }
+
+        Long_Add_State& operator=(unsigned long long value) {
+            fill(state->value_buffer, value); return *this;
+        }
+
+        operator Embedded_RSA::Num() const { // NOLINT
+            return static_cast<Embedded_RSA::Num>(state->value_buffer);
+        }
 };
 
 class Buffered_Mul_State : public Embedded_RSA::Mul_State {
@@ -60,7 +71,11 @@ class Buffered_Mul_State : public Embedded_RSA::Mul_State {
 
         std::unique_ptr<State> state;
 
-        explicit Buffered_Mul_State(std::unique_ptr<State> state): Embedded_RSA::Mul_State(state->value_buffer, state->modulus_buffer, state->scratch1_buffer, state->scratch2_buffer), state {std::move(state) } { }
+        explicit Buffered_Mul_State(std::unique_ptr<State> state):
+            Embedded_RSA::Mul_State(
+                state->value_buffer, state->modulus_buffer,
+                state->scratch1_buffer, state->scratch2_buffer
+            ), state {std::move(state) } { }
 };
 
 class Long_Mul_State: public Buffered_Mul_State {
@@ -68,8 +83,12 @@ class Long_Mul_State: public Buffered_Mul_State {
         Long_Mul_State(unsigned long long value, unsigned long long modulus):
                 Buffered_Mul_State { std::make_unique<State>(value, modulus) }
         { }
-        Long_Mul_State& operator=(unsigned long long value) { fill(state->value_buffer, value); return *this; }
-        operator Embedded_RSA::Num() const { return static_cast<Embedded_RSA::Num>(state->value_buffer); } // NOLINT
+        Long_Mul_State& operator=(unsigned long long value) {
+            fill(state->value_buffer, value); return *this;
+        }
+        operator Embedded_RSA::Num() const { // NOLINT
+            return static_cast<Embedded_RSA::Num>(state->value_buffer);
+        }
 };
 
 class Long_Pow_State: public Embedded_RSA::Pow_State {
@@ -79,16 +98,22 @@ class Long_Pow_State: public Embedded_RSA::Pow_State {
             Long_Mul_State scratch1;
             Long_Result scratch2 { };
 
-            explicit State(unsigned long long value, unsigned long long modulus) : value { value, modulus }, scratch1{ 0, modulus } {}
+            explicit State(unsigned long long value, unsigned long long modulus):
+                value { value, modulus }, scratch1{ 0, modulus }
+            { }
         };
 
         std::unique_ptr<State> state;
 
         explicit Long_Pow_State(std::unique_ptr<State> state):
-                Embedded_RSA::Pow_State(state->value, state->scratch1, state->scratch2), state{std::move(state) }
+            Embedded_RSA::Pow_State { state->value, state->scratch1, state->scratch2 },
+            state { std::move(state) }
         { }
+
     public:
-        explicit Long_Pow_State(unsigned long long value, unsigned long long modulus): Long_Pow_State { std::make_unique<State>(value, modulus) } { }
+        explicit Long_Pow_State(unsigned long long value, unsigned long long modulus):
+            Long_Pow_State { std::make_unique<State>(value, modulus) }
+        { }
 };
 
 void assert_num(const Embedded_RSA::Num &num, unsigned long long expected) {
@@ -214,7 +239,10 @@ int main() {
     assert_mult(10, 13, 130);
     assert_mult(13, 10, 130);
     assert_mult(1234, 1000000, 1234000000);
-    assert_mult(Embedded_RSA::base, Embedded_RSA::base, static_cast<unsigned long long>(Embedded_RSA::base) * Embedded_RSA::base);
+    assert_mult(
+        Embedded_RSA::base, Embedded_RSA::base,
+        static_cast<unsigned long long>(Embedded_RSA::base) * Embedded_RSA::base
+    );
     assert_mult(1000, 100, 100000);
 
     assert_pow(2, 10, 1025, 1024);

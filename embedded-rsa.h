@@ -97,25 +97,6 @@ namespace Embedded_RSA {
         Mul_State& operator*=(const Num& other);
     };
 
-    struct Div_Result {
-        Result div;
-        Result rem;
-        Result scratch1;
-        Result scratch2;
-
-        Div_Result(
-            unsigned short* div_begin, unsigned short* div_end,
-            unsigned short* rem_begin, unsigned short* rem_end,
-            unsigned short* scratch1_begin, unsigned short* scratch1_end,
-            unsigned short* scratch2_begin, unsigned short* scratch2_end
-        ):
-            div { div_begin, div_end },
-            rem { rem_begin, rem_end },
-            scratch1 { scratch1_begin, scratch1_end },
-            scratch2 { scratch2_begin, scratch2_end }
-        { }
-    };
-
     struct Pow_State {
         Mul_State& result;
         Mul_State& scratch1;
