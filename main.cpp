@@ -1,19 +1,19 @@
-#include <iostream>
 #include <cassert>
+#include <memory>
 
-#include "big-str-num.h"
+#include "embedded-rsa.h"
 
-template<int SZ> class Buffered_Result: public Big_Str_Num::Result {
+template<int SZ> class Buffered_Result: public Embedded_RSA::Result {
         unsigned short buffer_[SZ] { };
     public:
         Buffered_Result(): Result {buffer_, buffer_ + SZ } { }
 };
 
-void fill(Big_Str_Num::Result& result, unsigned long long value) {
+void fill(Embedded_RSA::Result& result, unsigned long long value) {
     result.clear();
     while (value != 0) {
-        result.push_back(static_cast<unsigned short>(value % Big_Str_Num::base));
-        value = value / Big_Str_Num::base;
+        result.push_back(static_cast<unsigned short>(value % Embedded_RSA::base));
+        value = value / Embedded_RSA::base;
     }
 }
 
@@ -22,43 +22,78 @@ class Long_Result: public Buffered_Result<4> {
         explicit Long_Result(unsigned long long value = 0) { fill(*this, value); }
 };
 
-template<int SZ> class Buffered_Div_Result: public Big_Str_Num::Div_Result {
-        unsigned short div_buffer_[SZ] { };
-        unsigned short rem_buffer_[SZ] { };
-        unsigned short scratch1_buffer_[SZ] { };
-        unsigned short scratch2_buffer_[SZ] { };
+class Long_Add_State : public Embedded_RSA::Add_State {
+    protected:
+        struct State {
+            Long_Result value_buffer;
+            Long_Result modulus_buffer;
+
+            State(unsigned long long value, unsigned long long modulus) {
+                fill(value_buffer, value);
+                fill(modulus_buffer, modulus);
+            }
+        };
+
+        std::unique_ptr<State> state;
+
+        explicit Long_Add_State(std::unique_ptr<State> state): Add_State { state->value_buffer, state->modulus_buffer }, state { std::move(state) } { }
+
     public:
-        Buffered_Div_Result(): Div_Result(
-                div_buffer_, div_buffer_ + SZ,
-                rem_buffer_, rem_buffer_ + SZ,
-                scratch1_buffer_, scratch1_buffer_ + SZ,
-                scratch2_buffer_, scratch2_buffer_ + SZ
-        ) { }
+        Long_Add_State(unsigned long long value, unsigned long long modulus): Long_Add_State { std::make_unique<State>(value, modulus) } { }
+        Long_Add_State& operator=(unsigned long long value) { fill(state->value_buffer, value); return *this; }
+        operator Embedded_RSA::Num() const { return static_cast<Embedded_RSA::Num>(state->value_buffer); } // NOLINT
 };
 
-class Long_Div_Result: public Buffered_Div_Result<4> { };
+class Buffered_Mul_State : public Embedded_RSA::Mul_State {
+    protected:
+        struct State {
+            Long_Result value_buffer;
+            Long_Result modulus_buffer;
+            Long_Result scratch1_buffer;
+            Long_Result scratch2_buffer;
 
-template<int SZ> class Buffered_Pow_Result: public Big_Str_Num::Pow_Result {
-    Buffered_Div_Result<SZ> div_result_;
-    unsigned short result_[SZ] { };
-    unsigned short scratch1_buffer_[SZ] { };
-    unsigned short scratch2_buffer_[SZ] { };
-    unsigned short scratch3_buffer_[SZ] { };
-public:
-    Buffered_Pow_Result(): Pow_Result(
-            result_, result_ + SZ,
-            scratch1_buffer_, scratch1_buffer_ + SZ,
-            scratch2_buffer_, scratch2_buffer_ + SZ,
-            scratch3_buffer_, scratch3_buffer_ + SZ,
-            div_result_
-    ) { }
+            State(unsigned long long value, unsigned long long modulus) {
+                fill(value_buffer, value);
+                fill(modulus_buffer, modulus);
+            }
+        };
+
+        std::unique_ptr<State> state;
+
+        explicit Buffered_Mul_State(std::unique_ptr<State> state): Embedded_RSA::Mul_State(state->value_buffer, state->modulus_buffer, state->scratch1_buffer, state->scratch2_buffer), state {std::move(state) } { }
 };
 
-class Long_Pow_Result: public Buffered_Pow_Result<4> { };
+class Long_Mul_State: public Buffered_Mul_State {
+    public:
+        Long_Mul_State(unsigned long long value, unsigned long long modulus):
+                Buffered_Mul_State { std::make_unique<State>(value, modulus) }
+        { }
+        Long_Mul_State& operator=(unsigned long long value) { fill(state->value_buffer, value); return *this; }
+        operator Embedded_RSA::Num() const { return static_cast<Embedded_RSA::Num>(state->value_buffer); } // NOLINT
+};
 
-void assert_num(const Big_Str_Num::Num &num, unsigned long long expected) {
+class Long_Pow_State: public Embedded_RSA::Pow_State {
+    protected:
+        struct State {
+            Long_Mul_State value;
+            Long_Mul_State scratch1;
+            Long_Result scratch2 { };
+
+            explicit State(unsigned long long value, unsigned long long modulus) : value { value, modulus }, scratch1{ 0, modulus } {}
+        };
+
+        std::unique_ptr<State> state;
+
+        explicit Long_Pow_State(std::unique_ptr<State> state):
+                Embedded_RSA::Pow_State(state->value, state->scratch1, state->scratch2), state{std::move(state) }
+        { }
+    public:
+        explicit Long_Pow_State(unsigned long long value, unsigned long long modulus): Long_Pow_State { std::make_unique<State>(value, modulus) } { }
+};
+
+void assert_num(const Embedded_RSA::Num &num, unsigned long long expected) {
     if (expected > 0) {
-        assert(num == Big_Str_Num::Num { Long_Result(expected) });
+        assert(num == Embedded_RSA::Num {Long_Result(expected) });
     } else {
         assert(num.begin() == nullptr && num.end() == nullptr);
     }
@@ -79,58 +114,31 @@ void assert_not_empty(unsigned long long initial) {
 }
 
 void assert_add(unsigned long long a, unsigned long long b, unsigned long long expected) {
-    Long_Result result { a };
-    Big_Str_Num::add(result, Long_Result { b });
+    Long_Add_State result { a, 0 };
+    result += Long_Result { b };
     assert(result == Long_Result(expected));
 }
 
 void assert_sub(unsigned long long a, unsigned long long b, unsigned long long expected) {
     Long_Result result { a };
-    Big_Str_Num::sub(result, Long_Result { b });
+    result -= Long_Result { b };
     assert(result == Long_Result(expected));
 }
 
 void assert_mult(unsigned long long a, unsigned long long b, unsigned long long expected) {
-    Long_Result result;
-    Big_Str_Num::mult(result, Long_Result { a }, Long_Result { b });
+    Long_Mul_State result { a, { } };
+    result *= Long_Result { b };
     assert(result == Long_Result { expected });
 }
 
-void assert_div_by_2(unsigned long long a, unsigned long long expected) {
-    Long_Result res { a };
-    Big_Str_Num::div_by_2(res);
-    assert(res == Long_Result { expected });
-}
-
-void assert_div(unsigned long long a, unsigned long long b, unsigned long long expected_div, unsigned long long expected_rem) {
-    Long_Div_Result res;
-    Big_Str_Num::div(res, Long_Result { a }, Long_Result { b });
-    assert(res.div == Long_Result { expected_div });
-    assert(res.rem == Long_Result { expected_rem });
-}
-
-void assert_mod(unsigned long long a, unsigned long long m, unsigned long long expected) {
-    Long_Div_Result tmp;
-    Long_Result res { a };
-    Big_Str_Num::mod(res, Long_Result { m }, tmp);
-    assert(res == Long_Result { expected });
-}
-
-void assert_mult_mod(unsigned long long a, unsigned long long b, unsigned long long m, unsigned long long expected) {
-    Long_Div_Result tmp;
-    Long_Result res;
-    Big_Str_Num::mult_mod(res, Long_Result { a }, Long_Result { b }, Long_Result { m }, tmp);
-    assert(res == Long_Result { expected });
-}
-
 void assert_pow(unsigned long long a, unsigned long long b, unsigned long long m, unsigned long long expected) {
-    Long_Pow_Result res;
-    Big_Str_Num::pow_mod(res, Long_Result { a }, Long_Result { b }, Long_Result { m });
+    Long_Pow_State res { a, m };
+    res.pow(Long_Result { b });
     assert(res.result == Long_Result { expected });
 }
 
 int main() {
-    assert_num(Big_Str_Num::Num { }, 0);
+    assert_num(Embedded_RSA::Num { }, 0);
     assert_num(0);
     assert_num(123457890);
     assert_num(12);
@@ -143,7 +151,7 @@ int main() {
         assert(result.empty());
         result = Long_Result { 12 };
         assert_num(result, 12);
-        result.copy(Big_Str_Num::Num { });
+        result.copy(Embedded_RSA::Num { });
         assert(result.empty());
     }
 
@@ -156,26 +164,26 @@ int main() {
     assert(Long_Result { 13 } >= Long_Result { 12 });
     assert(Long_Result { 13 } >= Long_Result { 13 });
 
-    assert(Long_Result { 12 + Big_Str_Num::base } == Long_Result { 12 + Big_Str_Num::base });
-    assert(Long_Result { 12 + Big_Str_Num::base } != Long_Result { 13 + Big_Str_Num::base });
-    assert(Long_Result { 12 + Big_Str_Num::base } < Long_Result { 13 + Big_Str_Num::base });
-    assert(Long_Result { 12 + Big_Str_Num::base } <= Long_Result { 13 + Big_Str_Num::base });
-    assert(Long_Result { 12 + Big_Str_Num::base } <= Long_Result { 12 + Big_Str_Num::base });
-    assert(Long_Result { 13 + Big_Str_Num::base } > Long_Result { 12 + Big_Str_Num::base });
-    assert(Long_Result { 13 + Big_Str_Num::base } >= Long_Result { 12 + Big_Str_Num::base });
-    assert(Long_Result { 13 + Big_Str_Num::base } >= Long_Result { 13 + Big_Str_Num::base });
+    assert(Long_Result {12 + Embedded_RSA::base } == Long_Result {12 + Embedded_RSA::base });
+    assert(Long_Result {12 + Embedded_RSA::base } != Long_Result {13 + Embedded_RSA::base });
+    assert(Long_Result {12 + Embedded_RSA::base } < Long_Result {13 + Embedded_RSA::base });
+    assert(Long_Result {12 + Embedded_RSA::base } <= Long_Result {13 + Embedded_RSA::base });
+    assert(Long_Result {12 + Embedded_RSA::base } <= Long_Result {12 + Embedded_RSA::base });
+    assert(Long_Result {13 + Embedded_RSA::base } > Long_Result {12 + Embedded_RSA::base });
+    assert(Long_Result {13 + Embedded_RSA::base } >= Long_Result {12 + Embedded_RSA::base });
+    assert(Long_Result {13 + Embedded_RSA::base } >= Long_Result {13 + Embedded_RSA::base });
 
-    assert(Long_Result { 12 * Big_Str_Num::base } == Long_Result { 12 * Big_Str_Num::base });
-    assert(Long_Result { 12 * Big_Str_Num::base } != Long_Result { 13 * Big_Str_Num::base });
-    assert(Long_Result { 12 * Big_Str_Num::base } < Long_Result { 13 * Big_Str_Num::base });
-    assert(Long_Result { 12 * Big_Str_Num::base } <= Long_Result { 13 * Big_Str_Num::base });
-    assert(Long_Result { 12 * Big_Str_Num::base } <= Long_Result { 12 * Big_Str_Num::base });
-    assert(Long_Result { 13 * Big_Str_Num::base } > Long_Result { 12 * Big_Str_Num::base });
-    assert(Long_Result { 13 * Big_Str_Num::base } >= Long_Result { 12 * Big_Str_Num::base });
-    assert(Long_Result { 13 * Big_Str_Num::base } >= Long_Result { 13 * Big_Str_Num::base });
+    assert(Long_Result {12 * Embedded_RSA::base } == Long_Result {12 * Embedded_RSA::base });
+    assert(Long_Result {12 * Embedded_RSA::base } != Long_Result {13 * Embedded_RSA::base });
+    assert(Long_Result {12 * Embedded_RSA::base } < Long_Result {13 * Embedded_RSA::base });
+    assert(Long_Result {12 * Embedded_RSA::base } <= Long_Result {13 * Embedded_RSA::base });
+    assert(Long_Result {12 * Embedded_RSA::base } <= Long_Result {12 * Embedded_RSA::base });
+    assert(Long_Result {13 * Embedded_RSA::base } > Long_Result {12 * Embedded_RSA::base });
+    assert(Long_Result {13 * Embedded_RSA::base } >= Long_Result {12 * Embedded_RSA::base });
+    assert(Long_Result {13 * Embedded_RSA::base } >= Long_Result {13 * Embedded_RSA::base });
 
-    assert(Long_Result { 100 } < Long_Result { 13 * Big_Str_Num::base });
-    assert(Long_Result { 13 * Big_Str_Num::base } > Long_Result { 100 });
+    assert(Long_Result { 100 } < Long_Result {13 * Embedded_RSA::base });
+    assert(Long_Result {13 * Embedded_RSA::base } > Long_Result {100 });
 
     assert_add(123, 45, 168);
     assert_add(1, 99, 100);
@@ -192,9 +200,9 @@ int main() {
     assert_sub(1000000, 2, 999998);
 
     {
-        Long_Result res { 12 };
-        Big_Str_Num::add(res, res);
-        assert(Long_Result { 24 } == res);
+        Long_Add_State res { 12, 0 };
+        res += res;
+        assert(res == Long_Result { 24 });
     }
 
     assert_mult(123, 0, 0);
@@ -206,50 +214,8 @@ int main() {
     assert_mult(10, 13, 130);
     assert_mult(13, 10, 130);
     assert_mult(1234, 1000000, 1234000000);
-    assert_mult(Big_Str_Num::base, Big_Str_Num::base, static_cast<unsigned long long>(Big_Str_Num::base) * Big_Str_Num::base);
+    assert_mult(Embedded_RSA::base, Embedded_RSA::base, static_cast<unsigned long long>(Embedded_RSA::base) * Embedded_RSA::base);
     assert_mult(1000, 100, 100000);
-
-    assert_div_by_2(10, 5);
-    assert_div_by_2(11, 5);
-    assert_div_by_2(0, 0);
-    assert_div_by_2(10000000, 5000000);
-    assert_div_by_2(Big_Str_Num::base, Big_Str_Num::base / 2);
-
-    assert_div(0, 10, 0, 0);
-    assert_div(10, 10, 1, 0);
-    assert_div(Big_Str_Num::base, 2, Big_Str_Num::base / 2, 0);
-    assert_div(100000, 100, 1000, 0);
-    assert_div(102, 10, 10, 2);
-    assert_div(123, 10, 12, 3);
-    assert_div(130, 17, 7, 11);
-
-    assert_mod(130, 17, 11);
-
-    assert_mult_mod(13, 10, 17, 11);
-    assert_mult_mod(10, 13, 17, 11);
-
-    {
-        Long_Result one { 1 }, two { 2 }, three { 3 }, four { 4 };
-        Long_Result five { 5 }, six { 6 }, seven { 7 }, eight { 8 };
-
-        Buffered_Pow_Result<5> result;
-        result.result.copy(one);
-        result.scratch1.copy(two);
-        result.scratch2.copy(three);
-        result.scratch3.copy(four);
-        result.div_result.div.copy(five);
-        result.div_result.rem.copy(six);
-        result.div_result.scratch1.copy(seven);
-        result.div_result.scratch2.copy(eight);
-        assert(result.result == one);
-        assert(result.scratch1 == two);
-        assert(result.scratch2 == three);
-        assert(result.scratch3 == four);
-        assert(result.div_result.div == five);
-        assert(result.div_result.rem == six);
-        assert(result.div_result.scratch1 == seven);
-        assert(result.div_result.scratch2 == eight);
-    }
 
     assert_pow(2, 10, 1025, 1024);
     assert_pow(2, 10, 10, 4);

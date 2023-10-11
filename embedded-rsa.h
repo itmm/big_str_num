@@ -6,7 +6,7 @@
 #include <limits>
 
 
-namespace Big_Str_Num {
+namespace Embedded_RSA {
     constexpr int base { 0x10000 };
 
     static_assert(std::numeric_limits<unsigned short>::max() >= (base - 1));
@@ -22,7 +22,6 @@ namespace Big_Str_Num {
     public:
         Num() = default;
         Num(const unsigned short* begin, const unsigned short* end): begin_ { begin }, end_ { end } { trim(); }
-        Num(const Result &result); // NOLINT
 
         Num(const Num& other) = default;
         Num& operator=(const Num& other) = default;
@@ -30,29 +29,32 @@ namespace Big_Str_Num {
         [[nodiscard]] const unsigned short* begin() const { return begin_; }
         [[nodiscard]] const unsigned short* end() const { return end_; }
         [[nodiscard]] ssize_t size() const { return end_ - begin_; }
-        [[nodiscard]] bool empty() const { return begin_ >= end_; }
+        explicit operator bool() const { return begin_ < end_; }
     };
 
 
     class Error : public std::exception { };
 
     class Result {
+        private:
             unsigned short *const begin_;
             unsigned short *const end_;
             unsigned short* used_;
-            friend class Num;
-            friend Result& add(Result& res, const Num& num);
-            friend Result& sub(Result& res, const Num& num);
-            friend Result& multiply_and_add(Result& res, const Num& num, int factor, int shift);
-            friend Result& div_by_2(Result& value);
+
+            template<typename OP> friend Result& perform_add_op(OP op, Result& value, const Num& other);
 
             void trim();
 
         public:
             Result(unsigned short *begin, unsigned short *end): begin_ { begin }, end_ { end }, used_ { begin } { }
             Result(const Result&) = delete;
+
             Result& operator=(const Result& other) { if (&other != this) { copy(other); } return *this; }
             Result& operator=(const Num& num) { copy(num); return *this; }
+
+            operator Num() const { return { begin_, used_ }; } // NOLINT
+
+            Result& operator-=(const Num& other);
 
             void copy(const Num& num, int shift = 0);
             void clear() { used_ = begin_; }
@@ -60,9 +62,40 @@ namespace Big_Str_Num {
 
             [[nodiscard]] bool empty() const { return used_ <= begin_; }
             [[nodiscard]] bool odd() const { return used_ > begin_ && (*begin_ % 2); }
+            Result& div_by_2();
     };
 
-    inline Num:: Num(const Result& result): begin_ { result.begin_ }, end_ { result.used_ } { trim(); }
+    struct Add_State {
+        Result& value;
+        const Num modulus;
+
+        Add_State(Result& value, const Num& modulus): value { value }, modulus { modulus } { }
+
+        operator Result&() { return value; } // NOLINT
+        operator Num() const { return value; } // NOLINT
+
+        Add_State& operator=(const Num& other) { value = other; return *this; }
+        Add_State& operator=(const Add_State& other) { value = other.value; return *this;}
+
+        Add_State& operator+=(const Num& other);
+    };
+
+    struct Mul_State {
+        Add_State value;
+        Add_State scratch1_;
+        Result& scratch2_;
+
+        Mul_State(Result& value, const Num& modulus, Result& scratch1, Result& scratch2 ):
+            value { value, modulus }, scratch1_ { scratch1, modulus }, scratch2_ { scratch2 }
+        { }
+
+        operator Result&() { return value; } // NOLINT
+        operator Num() const { return value; } // NOLINT
+
+        Mul_State& operator=(const Num& other) { value = other; return *this; }
+
+        Mul_State& operator*=(const Num& other);
+    };
 
     struct Div_Result {
         Result div;
@@ -83,26 +116,20 @@ namespace Big_Str_Num {
         { }
     };
 
-    struct Pow_Result {
-        Result result;
-        Result scratch1;
-        Result scratch2;
-        Result scratch3;
-        Div_Result& div_result;
+    struct Pow_State {
+        Mul_State& result;
+        Mul_State& scratch1;
+        Result& scratch2;
 
-        Pow_Result(
-            unsigned short* result_begin, unsigned short* result_end,
-            unsigned short* scratch1_begin, unsigned short* scratch1_end,
-            unsigned short* scratch2_begin, unsigned short* scratch2_end,
-            unsigned short* scratch3_begin, unsigned short* scratch3_end,
-            Div_Result& div_result
+        Pow_State(
+                Mul_State& result, Mul_State& scratch1, Result& scratch2
         ):
-            result { result_begin, result_end },
-            scratch1 { scratch1_begin, scratch1_end },
-            scratch2 { scratch2_begin, scratch2_end },
-            scratch3 { scratch3_begin, scratch3_end },
-            div_result { div_result }
+            result { result },
+            scratch1 { scratch1 },
+            scratch2 { scratch2 }
         { }
+
+        Pow_State& pow(const Num& b);
     };
 
     bool operator==(const Num& a, const Num& b);
@@ -111,14 +138,4 @@ namespace Big_Str_Num {
     inline bool operator>(const Num& a, const Num& b) { return b < a; }
     inline bool operator<=(const Num& a, const Num& b) { return !(b < a); }
     inline bool operator>=(const Num& a, const Num& b) { return !(a < b); }
-
-    Result& add(Result& res, const Num& num);
-    Result& sub(Result& res, const Num& num);
-    Result& mult(Result& res, const Num& a, const Num& b);
-    Result& div_by_2(Result &value);
-    Div_Result& div(Div_Result& res, const Num& a, const Num& b);
-
-    Result& mod(Result& res, const Num& m, Div_Result& tmp);
-    Result& mult_mod(Result& res, const Num& a, const Num& b, const Num& m, Div_Result& tmp);
-    Pow_Result& pow_mod(Pow_Result& res, const Num& a, const Num& b, const Num& m);
 }
