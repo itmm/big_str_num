@@ -133,11 +133,11 @@ namespace Embedded_RSA {
         Add_State scratch1;
         Result& scratch2;
 
-        // value, modulus, scratch1 and scratch2 must all point to different
+        // value, modulus, scratch1, and scratch2 must all point to different
         // non-overlapping memory ranges; value and scratch1 must have capacity
         // for at least 2 * modulus (if modulus is non-zero) and at least the
-        // size of the non-truncated value otherwise; scratch2 must have the
-        // capacity to store any value that is passed to operator*=
+        // size of the non-truncated result otherwise; scratch2 must have the
+        // capacity to store any value that is passed to operator*=().
         Mul_State(Result& value, const Num& modulus, Result& scratch1, Result& scratch2) :
             value { value, modulus }, scratch1 { scratch1, modulus }, scratch2(scratch2) { }
 
@@ -160,6 +160,11 @@ namespace Embedded_RSA {
         Mul_State scratch1;
         Result& scratch2;
 
+        // point to different non-overlapping memory ranges; all buffers except
+        // scratch4 must have capacity to store at least 2 * modulus (if modulus
+        // is non-zero) and at least tho size of the non-truncated result
+        // otherwise; scratch4 must hove the capacity to store any value that is
+        // passed to pow().
         Pow_State(
             Result& value, const Num& modulus, Result& scratch1, Result& scratch2, Result& scratch3, Result& scratch4
         ) :
