@@ -8,18 +8,20 @@ namespace Embedded_RSA {
         if (begin_ == end_) { begin_ = end_ = nullptr; }
     }
 
-    bool operator==(const Num &a, const Num &b) {
+    bool operator==(const Num& a, const Num& b) {
         return std::equal(a.begin(), a.end(), b.begin(), b.end());
     }
 
-    bool operator<(const Num &a, const Num &b) {
+    bool operator<(const Num& a, const Num& b) {
         auto as { a.size() };
         auto bs { b.size() };
         if (as == bs) {
             auto ab { a.begin() };
-            auto ac { a.end() - 1 } ;
+            auto ac { a.end() - 1 };
             auto bc { b.end() - 1 };
-            for (; ac >= ab; --ac, --bc) {
+            for (
+                ; ac >= ab; --ac, --bc
+                ) {
                 if (*ac < *bc) { return true; }
                 else if (*ac > *bc) { return false; }
             }
@@ -27,7 +29,7 @@ namespace Embedded_RSA {
         return as < bs;
     }
 
-    void Result::copy(const Num &num) {
+    void Result::copy(const Num& num) {
         auto nc { num.begin() };
         auto ne { num.end() };
         used_ = begin_;
@@ -50,7 +52,7 @@ namespace Embedded_RSA {
     }
 
     template<typename OP> Result& Result::perform_add_op(OP op, const Num& other) {
-        auto cur {begin_ };
+        auto cur { begin_ };
         auto oc { other.begin() };
         auto oe { other.end() };
         int overflow { 0 };
@@ -59,7 +61,7 @@ namespace Embedded_RSA {
             int sum { overflow };
             int digit { 0 };
             overflow = 0;
-            if (oc < oe ) { digit = *oc++; }
+            if (oc < oe) { digit = *oc++; }
             if (cur >= end_) { throw Error { }; }
             if (cur < used_) { sum += *cur; }
             overflow = op(digit, sum, overflow);
@@ -73,7 +75,8 @@ namespace Embedded_RSA {
     inline int single_add(int digit, int& sum, int& overflow) {
         sum += digit;
         if (sum >= base) {
-            sum -= base; overflow = 1;
+            sum -= base;
+            overflow = 1;
         }
         return overflow;
     }
@@ -91,7 +94,8 @@ namespace Embedded_RSA {
     inline int single_sub(int digit, int& sum, int& overflow) {
         sum -= digit;
         if (sum < 0) {
-            sum += base; overflow = -1;
+            sum += base;
+            overflow = -1;
         }
         return overflow;
     }
@@ -106,11 +110,13 @@ namespace Embedded_RSA {
         int overflow = 0;
 
         auto rc { used_ - 1 };
-        for (; rc >= begin_; --rc) {
+        for (
+            ; rc >= begin_; --rc
+            ) {
             int sum = overflow;
             int digit = *rc;
-            sum += digit/2;
-            overflow = (digit % 2) * (base/2);
+            sum += digit / 2;
+            overflow = (digit % 2) * (base / 2);
             *rc = static_cast<unsigned short>(sum);
         }
 
@@ -123,7 +129,9 @@ namespace Embedded_RSA {
 
     template<typename OP, typename RES>
     void bit_process(OP op, RES& res, const Num& num, RES& scratch1, Result& scratch2) {
-        for (scratch2 = num; ! scratch2.empty(); scratch2.div_by_2()) {
+        for (
+            scratch2 = num; !scratch2.empty(); scratch2.div_by_2()
+            ) {
             if (scratch2.odd()) {
                 op(res, scratch1);
             }
@@ -134,18 +142,18 @@ namespace Embedded_RSA {
     inline void do_add(Add_State& a, const Num& b) { a += b; }
 
     Mul_State& Mul_State::operator*=(const Num& other) {
-        scratch1_ = Num { value };
+        scratch1 = Num { value };
         value = Num { };
-        bit_process<>(do_add, value, other, scratch1_, scratch2_);
+        bit_process<>(do_add, value, other, scratch1, scratch2);
         return *this;
     }
 
     inline void do_multiply(Mul_State& a, const Num& b) { a *= b; }
 
     Pow_State& Pow_State::pow(const Num& b) {
-        scratch1 = Num { result };
-        result = Num { one, one + 1 };
-        bit_process<>(do_multiply, result, b, scratch1, scratch2);
+        scratch1 = Num { value };
+        value = Num { one, one + 1 };
+        bit_process<>(do_multiply, value, b, scratch1, scratch2);
         return *this;
     }
 }
