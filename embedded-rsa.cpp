@@ -156,4 +156,100 @@ namespace Embedded_RSA {
         bit_process<>(do_multiply, value, b, scratch1, scratch2);
         return *this;
     }
+
+    int Rsa_State::byte_size(const Num& key) {
+        if (! key) { return 0; }
+        int result = static_cast<int>(key.end() - key.begin() - 1) * 2;
+        if (key.end()[-1] > 255) { ++result; }
+        return result;
+    }
+
+    unsigned char random_char() { return 42; } // TODO
+
+    char* Rsa_State::encrypt(const char* plain_begin, const char* plain_end, char* crypt_begin, const char* crypt_end) {
+        auto len = plain_end - plain_begin;
+        if (len < 0 || len + 11 > bytes_per_num) { throw Error { }; }
+        if (crypt_end - crypt_begin < bytes_per_num) { throw Error { }; }
+        crypt_end = crypt_begin + bytes_per_num;
+
+        state.value = Num { };
+        auto& res { state.value.value.value };
+        res.push_back(0x0200);
+        for (auto i { bytes_per_num - len - 3 }; i >= 1; i -= 2) {
+             res.push_back((random_char() << 8) + random_char());
+        }
+
+        if ((bytes_per_num - len - 3) % 2) {
+            res.push_back(random_char() << 8);
+        } else if (len > 0) {
+            res.push_back(*plain_begin++);
+        }
+
+        for (; plain_begin + 1 < plain_end; plain_begin += 2) {
+            res.push_back(static_cast<unsigned char>(plain_begin[0]) + (static_cast<unsigned char>(plain_begin[1]) << 8));
+        }
+        if (plain_begin < plain_end) { res.push_back(static_cast<unsigned char>(*plain_begin)); }
+
+        state.pow(exponent);
+
+        auto cur { Num { res }.begin() };
+        auto end { Num { res }.end() };
+        for (; crypt_begin + 1 < crypt_end && cur < end; ++cur) {
+            *crypt_begin++ = static_cast<char>(*cur % 0x100);
+            *crypt_begin++ = static_cast<char>(*cur >> 8);
+        }
+        if (crypt_begin < crypt_end && cur < end) { *crypt_begin++ = static_cast<char>(*cur % 0x100); }
+        while (crypt_begin < crypt_end) { *crypt_begin++ = '\0'; }
+        return crypt_begin;
+    }
+
+    char *Rsa_State::decrypt(const char* crypt_begin, const char* crypt_end, char* plain_begin, const char* plain_end) {
+        if (crypt_end - crypt_begin < bytes_per_num) { throw Error { }; }
+        crypt_end = crypt_begin + bytes_per_num;
+
+        state.value = Num { };
+        auto& res { state.value.value.value };
+
+        for (; crypt_begin + 1 < crypt_end; crypt_begin += 2) {
+            res.push_back(static_cast<unsigned char>(crypt_begin[0]) + (static_cast<unsigned char>(crypt_begin[1]) << 8));
+        }
+        if (crypt_begin < crypt_end) { res.push_back(static_cast<unsigned char>(*crypt_begin)); }
+
+        state.pow(exponent);
+
+        const char* out_end { plain_begin + bytes_per_num };
+
+        auto cur { Num { res }.begin() };
+        auto end { Num { res }.end() };
+        if (cur >= end || *cur != 0x0200) { throw Error { }; }
+        out_end -= 2;
+        ++cur;
+
+        for (; cur < end; ++cur, out_end -= 2) {
+            if ((*cur & 0xff) == 0) {
+                if (plain_begin >= out_end || plain_begin >= plain_end) { throw Error { }; }
+                *plain_begin++ = static_cast<char>(*cur >> 8);
+                out_end -= 2;
+                break;
+            }
+            if ((*cur & 0xff00) == 0) { ++cur; out_end -= 2; break; }
+        }
+        for (; cur < end; ++cur) {
+            if (plain_begin >= out_end) {
+                if (plain_begin >= plain_end) { throw Error { }; }
+                *plain_begin++ = static_cast<char>(*cur % 0x100);
+            }
+            if (plain_begin >= out_end) {
+                if (plain_begin >= plain_end) { throw Error { }; }
+                *plain_begin++ = static_cast<char>(*cur >> 8);
+            }
+        }
+        while (plain_begin < out_end) {
+            if (plain_begin >= plain_end) { throw Error { }; }
+            *plain_begin++ = static_cast<char>(*cur % 0x100);
+        }
+
+        return plain_begin;
+    }
+
 }

@@ -22,8 +22,9 @@ namespace Embedded_RSA {
         public:
             Num() = default;
 
-            Num(const unsigned short* begin, const unsigned short* end) :
-                begin_ { begin }, end_ { end } { trim(); }
+            Num(const unsigned short* begin, const unsigned short* end, bool /*no_trim*/): begin_ { begin }, end_ { end } { }
+
+            Num(const unsigned short* begin, const unsigned short* end) : Num { begin, end, true } { trim(); }
 
             Num(const Num& other) = default;
 
@@ -82,7 +83,7 @@ namespace Embedded_RSA {
                 return *this;
             }
 
-            operator Num() const { return { begin_, used_ }; } // NOLINT
+            operator Num() const { return { begin_, used_, true }; } // NOLINT
 
             Result& operator-=(const Num& other); // perform subtraction
 
@@ -174,4 +175,17 @@ namespace Embedded_RSA {
         Pow_State& pow(const Num& b);
     };
 
+    struct Rsa_State {
+        Pow_State state;
+        const Num exponent;
+        const int bytes_per_num;
+
+        static int byte_size(const Num& key);
+
+        Rsa_State(const Num& modulus, const Num& exponent, Result& scratch1, Result& scratch2, Result& scratch3, Result& scratch4, Result& scratch5) :
+            state { scratch5, modulus, scratch1, scratch2, scratch3, scratch4 }, exponent { exponent }, bytes_per_num { byte_size(modulus) } { }
+
+        char* encrypt(const char* plain_begin, const char* plain_end, char* crypt_begin, const char* crypt_end);
+        char* decrypt(const char* crypt_begin, const char* crypt_end, char* plain_begin, const char* plain_end);
+    };
 }
