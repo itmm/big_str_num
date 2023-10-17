@@ -1,4 +1,6 @@
 #include <algorithm>
+#include <chrono>
+#include <iostream>
 
 #include "embedded-rsa.h"
 
@@ -51,7 +53,7 @@ namespace Embedded_RSA {
         return res;
     }
 
-    template<typename OP> Result& Result::perform_add_op(OP op, const Num& other) {
+    template<typename OP> inline Result& Result::perform_add_op(OP op, const Num& other) {
         auto cur { begin_ };
         auto oc { other.begin() };
         auto oe { other.end() };
@@ -128,7 +130,7 @@ namespace Embedded_RSA {
     constexpr unsigned short one[1] = { 1 };
 
     template<typename OP, typename RES>
-    void bit_process(OP op, RES& res, const Num& num, RES& scratch1, Result& scratch2) {
+    void inline bit_process(OP op, RES& res, const Num& num, RES& scratch1, Result& scratch2) {
         for (
             scratch2 = num; !scratch2.empty(); scratch2.div_by_2()
             ) {
@@ -190,7 +192,10 @@ namespace Embedded_RSA {
         }
         if (plain_begin < plain_end) { res.push_back(static_cast<unsigned char>(*plain_begin)); }
 
+        auto before { std::chrono::high_resolution_clock::now() };
         state.pow(exponent);
+        auto after { std::chrono::high_resolution_clock::now() };
+        std::cerr << "pow duration " << std::chrono::duration<double, std::milli>(after - before) << "\n";
 
         auto cur { Num { res }.begin() };
         auto end { Num { res }.end() };
